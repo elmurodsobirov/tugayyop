@@ -43,17 +43,23 @@ class ApiService {
   Future<Map<String, dynamic>> controlGate(
     String target,
     String command,
-    int userId,
-  ) async {
+    int userId, {
+    int? position,
+  }) async {
+    final Map<String, dynamic> bodyData = {
+      'target': target,
+      'command': command,
+      'user_id': userId,
+    };
+
+    if (position != null) {
+      bodyData['position'] = position;
+    }
+
     final response = await http.post(
       Uri.parse('${baseUrl}api.php?action=control_gate'),
       headers: {'Content-Type': 'application/json'},
-      // API expects: target (GATE A), command (open), position (optional)
-      body: jsonEncode({
-        'target': target,
-        'command': command,
-        'user_id': userId,
-      }),
+      body: jsonEncode(bodyData),
     );
     if (response.statusCode == 200) {
       return jsonDecode(response.body);
@@ -94,6 +100,63 @@ class ApiService {
       return jsonDecode(response.body);
     } else {
       throw Exception('Failed to send message: ${response.statusCode}');
+    }
+  }
+
+  // --- User Management (Admin Only) ---
+
+  Future<List<dynamic>> getUsers(int adminId) async {
+    final response = await http.get(
+      Uri.parse('${baseUrl}api/users.php?action=list&user_id=$adminId'),
+    );
+    if (response.statusCode == 200) {
+      final json = jsonDecode(response.body);
+      if (json['status'] == 'success') {
+        return json['users'];
+      }
+      throw Exception(json['message']);
+    }
+    throw Exception('Failed to load users: ${response.statusCode}');
+  }
+
+  Future<void> addUser(Map<String, dynamic> userData, int adminId) async {
+    // Inject adminId for auth check
+    final body = Map<String, dynamic>.from(userData);
+    body['user_id'] = adminId;
+
+    final response = await http.post(
+      Uri.parse('${baseUrl}api/users.php?action=add'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode(body),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Server Error: ${response.statusCode}');
+    }
+    
+    final json = jsonDecode(response.body);
+    if (json['status'] != 'success') {
+      throw Exception(json['message']);
+    }
+  }
+
+  Future<void> deleteUser(int targetId, int adminId) async {
+    final response = await http.post(
+      Uri.parse('${baseUrl}api/users.php?action=delete'),
+      headers: {'Content-Type': 'application/json'},
+      body: jsonEncode({
+        'id': targetId,
+        'user_id': adminId, // Auth
+      }),
+    );
+
+    if (response.statusCode != 200) {
+      throw Exception('Server Error: ${response.statusCode}');
+    }
+
+    final json = jsonDecode(response.body);
+    if (json['status'] != 'success') {
+      throw Exception(json['message']);
     }
   }
 }
