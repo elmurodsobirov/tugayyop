@@ -24,29 +24,40 @@ class _LoginScreenState extends State<LoginScreen> {
         _passwordController.text,
       );
 
+      debugPrint('Login result: $result');
+
       if (!mounted) return;
 
-      if (result['status'] == 'success') {
+      if (result['success'] == true) {
         final prefs = await SharedPreferences.getInstance();
-        final rawId = result['user']['id'];
+        final rawId = result['data']['id'];
         final userId = rawId is int ? rawId : int.parse(rawId.toString());
         await prefs.setInt('user_id', userId);
-        await prefs.setString('username', result['user']['username']);
-        await prefs.setString('role', result['user']['role']);
+        await prefs.setString(
+          'username',
+          result['data']['username'] ?? _usernameController.text,
+        );
+        await prefs.setString('role', result['data']['role']);
 
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const HomeScreen()),
-        );
+        if (mounted) {
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const HomeScreen()),
+          );
+        }
       } else {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text(result['message'])),
-        );
+        if (mounted) {
+          ScaffoldMessenger.of(
+            context,
+          ).showSnackBar(SnackBar(content: Text(result['message'])));
+        }
       }
     } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text("Error: $e")),
-      );
+      if (mounted) {
+        ScaffoldMessenger.of(
+          context,
+        ).showSnackBar(SnackBar(content: Text("Error: $e")));
+      }
     } finally {
       if (mounted) setState(() => _isLoading = false);
     }
@@ -73,10 +84,7 @@ class _LoginScreenState extends State<LoginScreen> {
             const SizedBox(height: 20),
             _isLoading
                 ? const CircularProgressIndicator()
-                : ElevatedButton(
-                    onPressed: _login,
-                    child: const Text('Login'),
-                  ),
+                : ElevatedButton(onPressed: _login, child: const Text('Login')),
           ],
         ),
       ),
